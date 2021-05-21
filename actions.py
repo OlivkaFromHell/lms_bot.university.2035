@@ -1,5 +1,7 @@
 import datetime as dt
+import sqlite3
 import telebot
+import json
 
 from deadline import deadline_list
 from scores_stat import my_progress
@@ -16,9 +18,9 @@ keyboard = telebot.types.ReplyKeyboardMarkup(True)
 keyboard.row('Мой прогресс', 'Уведомления о дедлайнах')
 keyboard.row('Список дедлайнов')
 
+# notification keyboard
 keyboard_deadline = telebot.types.ReplyKeyboardMarkup(True)
 keyboard_deadline.row('Отключить уведомления', 'Включить уведомления')
-
 
 def send(id, text, reply_markup=keyboard):
     bot.send_message(id, text, reply_markup=reply_markup)
@@ -49,12 +51,28 @@ def process_reg(message):
             user_id = message.from_user.id
             user_data[user_id] = User(message.text)
 
-            bot.send_message(message.chat.id, 'Супер, мы определили, кто ты!\n\n'
+            with open('data/user_report.json', 'rb') as f:
+                traffic = json.load(f)
+            for note in traffic:
+                if note['email'] == message.text:
+                    try:
+                        # подключаемся к базе данных
+                        conn = sqlite3.connect("data/user_database.db")
+                        cursor = conn.cursor()
+                        sql = "INSERT INTO user_db VALUES (?,?,?,?,?)"
+                        val = [(user_id, note['id'], note['lastname'], note['firstname'], note['email'])]
+                        cursor.executemany(sql, val)
+                        conn.commit()
+                        print(val)
+                        bot.send_message(message.chat.id, 'Супер, мы определили, кто ты!\n\n'
                                           'Вот несколько моих функций:\n'
                                           'Мой прогресс – покажу твои оценки и комментарии преподавателей\n'
                                           'Список дедлайнов – выведу все горящие дедлайны курса и буду бережно напоминать\n'
                                           'И если вдруг забыл команды – пиши /help\n\n'
                                           'С чего начнем?')
+                    except sqlite3.IntegrityError:
+                        bot.send_message(message.chat.id, 'Упс.. Кто-то уже зарегистрирован в боте с данным email')
+                    break
         else:
             r = 1/0
     except Exception as e:
@@ -103,7 +121,7 @@ def main(message):
                  'Переходи по ссылке и изучай свой прогресс:')
         bot.send_message(id, text, parse_mode='MarkdownV2')
 
-    elif msg == 'Список дедлайнов':
+    elif msg == 'Список дедлайнов':нет
         send(id, deadline_list())
     elif msg == 'Уведомления о дедлайнах':
         send(id, 'Ты можешь включить уведомления о дедлайнах на курсе.'

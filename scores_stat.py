@@ -22,4 +22,3 @@ def my_progress(user_mail):
 
     return response['url']
 
-
