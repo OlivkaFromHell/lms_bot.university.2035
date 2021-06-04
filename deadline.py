@@ -1,29 +1,38 @@
 import datetime as dt
+import requests
+import json
 
+def deadline_list(moodle_id):
 
-def deadline_list():
-    inf = []
-    with open('data/ica.ics', 'r', encoding='utf-8') as f:
-        for row in f:
-            if 'SUMMARY' in row:
-                inf.append(row[8:-1])
-            if 'DTEND' in row:
-                year = int(row[6:10])
-                month = int(row[10:12])
-                day = int(row[12:14])
-                hour = int(row[15:17]) + 3
-                minute = int(row[17:19])
-                dead = dt.datetime(year, month, day, hour, minute)
-                inf.append(dead)
+    r = requests.get(f'https://moodle.vk-apps.dev/webservice'
+                     f'/rest/server.php?wstoken=c6fbe6f2b693c965cd939fcba3526cea&wsfunction='
+                     f'get_videolecture&moodlewsrestformat=json&userId={moodle_id}')
 
+    ans = json.loads(r.text[:-4])
 
-    ans = 'Список дедлайнов\n'
-    for i in range(0, len(inf), 2):
-        time = f" {inf[i + 1].day}.{inf[i + 1].month} {inf[i + 1].hour}:{inf[i + 1].minute}"
-        ans += inf[i] + time + '\n'
+    dead_courses = []
 
-    return ans
+    for course in ans['courses']:
+        for task in ans['courses'][course]['quiz']:
+            name = ans['courses'][course]['quiz'][task]['name']
+            timeclose = ans['courses'][course]['quiz'][task]['timeclose']
+            timeclose = dt.datetime.utcfromtimestamp(int(timeclose))
+            dead_courses.append({'name': name, 'timeclose': timeclose})
+
+    list_to_send = []
+    # за месяц
+    for dead in dead_courses:
+        if (dead['timeclose'] - dt.datetime.now()).days < 24 and dead['timeclose'] != dt.datetime(1970, 1, 1, 0, 0):
+            list_to_send.append(dead)
+
+    msg = 'Список дедлайнов на месяц:\n'
+    for row in list_to_send:
+        time = row['timeclose'].strftime("%d.%m %H:%M")
+
+        msg += row['name'] + ' | '+ time + '\n'
+
+    return msg
 
 
 if __name__ == '__main__':
-    print(deadline_list())
+    print(deadline_list(2))
