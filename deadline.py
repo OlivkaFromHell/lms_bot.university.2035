@@ -2,8 +2,8 @@ import datetime as dt
 import requests
 import json
 
-def deadline_list(moodle_id):
 
+def deadline_list(moodle_id):
     r = requests.get(f'https://moodle.vk-apps.dev/webservice'
                      f'/rest/server.php?wstoken=c6fbe6f2b693c965cd939fcba3526cea&wsfunction='
                      f'get_videolecture&moodlewsrestformat=json&userId={moodle_id}')
@@ -22,17 +22,16 @@ def deadline_list(moodle_id):
     list_to_send = []
     # за месяц
     for dead in dead_courses:
-        if (dead['timeclose'] - dt.datetime.now()).days < 24 and dead['timeclose'] != dt.datetime(1970, 1, 1, 0, 0):
+        if 0 < (dead['timeclose'] - dt.datetime.now()).days < 24 and dead['timeclose'] != dt.datetime(1970, 1, 1, 0, 0):
             list_to_send.append(dead)
 
-    msg = 'Список дедлайнов на месяц:\n'
     for row in list_to_send:
+        msg = 'Список дедлайнов на месяц:\n'
         time = row['timeclose'].strftime("%d.%m %H:%M")
-
-        msg += row['name'] + ' | '+ time + '\n'
+        msg += row['name'] + ' | ' + time + '\n'
+    else:
+        msg = 'На текущий месяц дедлайнов нет'
 
     return msg
 
 
-if __name__ == '__main__':
-    print(deadline_list(2))
