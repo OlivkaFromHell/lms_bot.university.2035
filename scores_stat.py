@@ -1,22 +1,39 @@
-import pandas as pd
 import requests
-from json import loads
+from json import loads, dumps
+
+from config import moodle_token
 
 
-def my_progress(user_mail):
-    url = f"https://study.vk-apps.dev/api/fetchData"
+def my_progress(moodle_id):
+    url = "https://study.vk-apps.dev/api/fetchData"
+    r = requests.get('https://dl-iamt.spbstu.ru/webservice/rest/server.php'
+        f'?wstoken={moodle_token}&wsfunction='
+        f'get_analyticsbot&moodlewsrestformat=json&userId={moodle_id}')
 
-    file = pd.read_excel('data/grade_history.xlsx')
+    text = r.text[:-4].replace('\n', ' ').replace(r'<p>', '').replace('<\/p>', ' ')#.replace('\"', '\'')
+    scores = loads(text)
 
-    filter_1 = file['Источник'] == 'mod/quiz'
-    filter_2 = file['Адрес электронной почты'] == user_mail
 
-    user_info = file.loc[filter_1 & filter_2]
-    user_info = user_info[['Дата и время', 'Элемент оценивания', 'Исправленная оценка']].rename(
-        columns={'Исправленная оценка': 'Оценка'})
+    user_info = {}
+    count = 0
+    for course in scores['courses']:
+        if 'quiz' in str(course):
+            for quiz in course['quiz']:
+                if 'id' in str(quiz) and (quiz['grade'] != 0 and quiz['grade'] != 'null' and quiz['grade']):
+                    if 'comment' in str(quiz) and quiz['comment']:
+                        user_info.update({count: {'Элемент оценивания': quiz['name'],
+                                                  'Оценка': quiz['grade'], 'Комментарий': quiz['comment']}})
+                    else:
+                        user_info.update({count: {'Элемент оценивания': quiz['name'], 'Оценка': quiz['grade']}})
+                    count += 1
 
-    info_json = user_info.to_json()
-    res = requests.post(f"{url}?data={info_json}")
+    info_json = dumps(user_info)
+
+    res = requests.post(url, data={'data': info_json})
     response = loads(res.text)
 
     return response['url']
+
+
+if __name__ == '__main__':
+    print(my_progress(27952))
