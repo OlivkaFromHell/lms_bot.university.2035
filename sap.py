@@ -20,6 +20,26 @@ keyboard.row('Статус документов', 'Список дедлайно
 keyboard_deadline = telebot.types.ReplyKeyboardMarkup(True)
 keyboard_deadline.row('Отключить уведомления', 'Включить уведомления')
 
+# logging settings
+formatter = logging.Formatter('%(asctime)s %(message)s')
+
+
+def setup_logger(name, log_file, level=logging.INFO):
+    """To setup as many loggers as you want"""
+
+    handler = logging.FileHandler(log_file)
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
+
+
+logger_err = setup_logger('error logger', 'sap_error.log', level=logging.ERROR)
+logger_stat = setup_logger('statistics logger', 'sap_stat.log')
+
 
 def send(id, text, parse_mode='', reply_markup=''):
     """send message to user from bot"""
@@ -32,10 +52,6 @@ def reauth(message):
                           'Введи электронную почту, с которой ты проходишь данный курс\n\n'
                           '⬇')
     bot.register_next_step_handler(message, process_reg)
-
-
-logging.basicConfig(format="%(asctime)s %(message)s",
-                    filename='sap.log')
 
 
 @bot.message_handler(commands=['start'])
@@ -63,7 +79,7 @@ def process_reg(message):
 
     except Exception as err:
         err_msg = f"User with email |{message.text}| while auth got error: {err}"
-        logging.error(err_msg)
+        logger_err.error(err_msg)
 
     if response:
 
@@ -71,7 +87,7 @@ def process_reg(message):
             learn_login = get_login_learn(message.text)
         except Exception as err:
             err_msg = f"User with email |{message.text}| while using get_login_learn got error: {err}"
-            logging.error(err_msg)
+            logger_err.error(err_msg)
 
         try:
             # connect with sqlite db
@@ -86,7 +102,7 @@ def process_reg(message):
 
         except Exception as err:
             err_msg = f"User |{message.chat.username}| email |{message.text}| while auth_sql got error: {err}"
-            logging.error(err_msg)
+            logger_err.error(err_msg)
         finally:
             cursor.close()
             conn.close()
@@ -140,6 +156,7 @@ def main(message):
     msg = message.text
 
     if msg == 'Мой прогресс':
+        logger_stat.info(f"| {id} | Мой прогресс")
         try:
             conn = sqlite3.connect("data/user_database.db")
             cursor = conn.cursor()
@@ -157,9 +174,10 @@ def main(message):
             conn.close()
         except Exception as err:
             err_msg = f"User |{message.chat.username}| email |{message.text}| while 'Мой прогресс' got error: {err}"
-            logging.error(err_msg)
+            logger_err.error(err_msg)
 
     elif msg == 'Список дедлайнов':
+        logger_stat.info(f"| {id} | Список дедлайнов")
         try:
             conn = sqlite3.connect("data/user_database.db")
             cursor = conn.cursor()
@@ -167,13 +185,15 @@ def main(message):
             cursor.execute(sql)
             send(id, deadline_list(moodle_id=cursor.fetchone()[0]))
 
-            cursor.close()
-            conn.close()
         except Exception as err:
             err_msg = f"User |{message.chat.username}| email |{message.text}| while 'Список дедлайнов' got error: {err}"
-            logging.error(err_msg)
+            logger_err.error(err_msg)
+        finally:
+            cursor.close()
+            conn.close()
 
     elif msg == 'Уведомления о дедлайнах':
+        logger_stat.info(f"| {id} | Уведомления о дедлайнах")
         send(id, 'Ты можешь включить уведомления о дедлайнах на курсе.'
                  'Теперь ты с меньшей вероятностью пропустишь тест или практическое задание. Наверно...\n\n'
                  'Выбери нужную функцию\n\n⬇', reply_markup=keyboard_deadline)
@@ -194,6 +214,7 @@ def main(message):
         bot.send_message(id, text_off, parse_mode='Markdown', reply_markup=keyboard)
 
     elif msg == 'Статус документов':
+        logger_stat.info(f"| {id} | Статус документов")
         try:
             conn = sqlite3.connect("data/user_database.db")
             cursor = conn.cursor()
@@ -212,7 +233,25 @@ def main(message):
                 send(id, 'К сожалению, я не нашел тебя в базе данных с документами')
         except Exception as err:
             err_msg = f"User |{message.chat.username}| email |{message.text}| while 'Статус доков' got error: {err}"
-            logging.error(err_msg)
+            logger_err.error(err_msg)
+
+    elif msg == '/login':
+        logger_stat.info(f"| {id} | /login")
+        try:
+            conn = sqlite3.connect("data/user_database.db")
+            cursor = conn.cursor()
+            sql = f"SELECT email FROM user_db WHERE telegram_id = {id}"
+            cursor.execute(sql)
+            learn_login = get_login_learn(cursor.fetchone()[0])
+
+            bot.send_message(id, f"Твой логин: {learn_login}")
+
+        except Exception as err:
+            err_msg = f"User |{message.chat.username}| email |{message.text}| while '/login' got error: {err}"
+            logger_err.error(err_msg)
+        finally:
+            cursor.close()
+            conn.close()
 
     else:
         bot.send_message(id, 'Неправильная команда', reply_markup=keyboard)
