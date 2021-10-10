@@ -3,8 +3,8 @@ Telegram bot for Polytechnic University. It’s notified users about deadlines a
 The main file is sap.py
 
 
-what was used:
-  *telebot
-  *google API sheets
-  *SQLite
-  *requests to connect to university servers
+what was used:<br>
+  · telebot<br>
+  · google API sheets
+  · SQLite
+  ·requests to connect to university servers
