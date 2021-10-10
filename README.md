@@ -5,6 +5,6 @@ The main file is sap.py
 
 what was used:<br>
   · telebot<br>
-  · google API sheets
-  · SQLite
-  ·requests to connect to university servers
+  · google API sheets<br>
+  · SQLite<br>
+  ·requests to connect to university servers<br>
